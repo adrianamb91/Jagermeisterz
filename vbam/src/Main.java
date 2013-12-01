@@ -35,27 +35,20 @@ public class Main {
 				String execName = execDirName + "\\" + names.get(i);
 				System.out.println("We should run this one: " + execName);
 				try {
-					String params[] = {execName, imgFilename};
 					System.out.println(execName + " " + imgFilename);
-					Process p;
-					//ProcessBuilder pb = new ProcessBuilder(names.get(i), imgFilename);
-					//pb.directory(execDir);
-					//p = pb.start();
 					
+					Process process = new ProcessBuilder(execName, imgFilename).start();
 					
-					p = Runtime.getRuntime().exec(params);
-					//Process process = new ProcessBuilder(execName, imgFilename).start();
-					
-//					InputStream is = process.getInputStream();
-//					InputStreamReader isr = new InputStreamReader(is);
-//					BufferedReader br = new BufferedReader(isr);
-//					String line;
-//
-//					System.out.printf("Output of running %s is:", Arrays.toString(args));
-//
-//					while ((line = br.readLine()) != null) {
-//					  System.out.println(line);
-//					}
+					InputStream is = process.getInputStream();
+					InputStreamReader isr = new InputStreamReader(is);
+					BufferedReader br = new BufferedReader(isr);
+					String line;
+
+					System.out.printf("Output of running %s is:", Arrays.toString(args));
+
+					while ((line = br.readLine()) != null) {
+					  System.out.println(line);
+					}
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
