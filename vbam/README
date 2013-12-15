@@ -1,0 +1,4 @@
+Restrictii pentru rulare:
+
+In folder-ul in care se afla BAM-urile, trebuie sa fie si folder-ul benchkmark
+(care contine Noob.exe si FreeImage.dll)
