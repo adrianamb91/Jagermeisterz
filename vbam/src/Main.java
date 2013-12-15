@@ -21,6 +21,7 @@ public class Main {
 		return size;
 	}
 
+	//TODO: configure this method to get the .exe from project's path
 	public static BufferedImage getBenchmark(String dirPath, String testImgPath) {
 		String execPath = dirPath + "\\benchmark\\Noob.exe";
 		try {
