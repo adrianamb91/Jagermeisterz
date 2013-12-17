@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.ObjectInputStream.GetField;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -14,6 +13,7 @@ import javax.imageio.spi.IIORegistry;
 public class Main {
 
 	static String imgExtension = ".tif";
+	static final Integer MIN_CONFIDENCE = 175;
 
 	public static int getSize(String path) throws IOException {
 		BufferedImage img = ImageIO.read(new File(path));
@@ -21,13 +21,13 @@ public class Main {
 		return size;
 	}
 
-	//TODO: configure this method to get the .exe from project's path
+	// TODO: configure this method to get the .exe from project's path
 	public static BufferedImage getBenchmark(String dirPath, String testImgPath) {
 		String execPath = dirPath + "\\benchmark\\Noob.exe";
 		try {
-			System.out.println("---- getBenchmark: " + execPath + " " + testImgPath);
-			Process process = new ProcessBuilder(execPath,
-					testImgPath).start();
+			System.out.println("---- getBenchmark: " + execPath + " "
+					+ testImgPath);
+			Process process = new ProcessBuilder(execPath, testImgPath).start();
 			InputStream is = process.getInputStream();
 			InputStreamReader isr = new InputStreamReader(is);
 			BufferedReader br = new BufferedReader(isr);
@@ -37,18 +37,14 @@ public class Main {
 				System.out.println(line);
 			}
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
-
 
 		String benchmarkImgPath = execPath + "_Black_and_White.tif";
 		BufferedImage img = null;
 		try {
 			img = ImageIO.read(new File(benchmarkImgPath));
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
@@ -63,7 +59,7 @@ public class Main {
 			return;
 		}
 
-		//Add .tif file types to ImageIO
+		// Add .tif file types to ImageIO
 		IIORegistry registry = IIORegistry.getDefaultInstance();
 		registry.registerServiceProvider(new com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi());
 		registry.registerServiceProvider(new com.sun.media.imageioimpl.plugins.tiff.TIFFImageReaderSpi());
@@ -81,7 +77,8 @@ public class Main {
 
 		final int timerForBAM = timeout * imgSize + iniTimeout;
 
-		BufferedImage n00bImplementation = getBenchmark(execDirPath, testImgPath);
+		BufferedImage n00bImplementation = getBenchmark(execDirPath,
+				testImgPath);
 
 		File execDir = new File(execDirPath);
 		ArrayList<String> filesFromInputDir = new ArrayList<String>(
@@ -116,7 +113,8 @@ public class Main {
 					BufferedReader br = new BufferedReader(isr);
 					String line;
 
-					System.out.println("Output of running " + Arrays.toString(args) + " is:");
+					System.out.println("Output of running "
+							+ Arrays.toString(args) + " is:");
 
 					while ((line = br.readLine()) != null) {
 						System.out.println(line);
@@ -125,47 +123,96 @@ public class Main {
 					process.waitFor();
 					t.interrupt();
 
-					//get strictly image file name
+					// get strictly image file name
 					String imageName = testImgPath.substring(testImgPath
 							.lastIndexOf("\\") + 1);
-					imageName = imageName.replace(imageName.substring(imageName.lastIndexOf(".")), imgExtension);
-					String resultImage = execDirPath + "\\dir_out\\" + filesFromInputDir.get(i) + "_" + imageName;
+					imageName = imageName.replace(
+							imageName.substring(imageName.lastIndexOf(".")),
+							imgExtension);
+					String resultImage = execDirPath + "\\dir_out\\"
+							+ filesFromInputDir.get(i) + "_" + imageName;
 
 					ImageFromBAM img = new ImageFromBAM(resultImage);
 					resultImages.add(img);
 
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
 		}
 
-		//Get result images
+		// Get result images
 		for (int i = 0; i < resultImages.size(); i++) {
 			try {
 				resultImages.get(i).readImage();
 				resultImages.get(i).readConf();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
 
-		ImageFromBAM winner = new ImageFromBAM(execDirPath + "\\" + resultImgFN + ".tif");
+		ImageFromBAM winner = new ImageFromBAM(execDirPath + "\\" + resultImgFN
+				+ ".tif");
 
-		//TODO: construirea imaginii resultat
-		//winner.image = resultImages.get(0).image;
-		winner.image = n00bImplementation;
+		// if no result from BAMs was found, than the result will be
+		// n00bImplementation
+		if (resultImages.size() == 0) {
+			winner.image = n00bImplementation;
+		} else {
+			int height = n00bImplementation.getHeight();
+			int width = n00bImplementation.getWidth();
+			BufferedImage img = new BufferedImage(width, height,
+					n00bImplementation.getType());
+
+			// if there is only one result, combine noobImplementation and image
+			// take the BAM implementation into account only if the confidence
+			// for the pixel is bigger than a constant value
+			if (resultImages.size() == 1) {
+				ImageFromBAM current = resultImages.get(0);
+				for (int j = 0; j < width; j++) {
+					for (int k = 0; k < height; k++) {
+						if (current.confTIF.getRGB(j, k) > MIN_CONFIDENCE) {
+							img.setRGB(j, k, current.image.getRGB(j, k));
+						} else {
+							img.setRGB(j, k, n00bImplementation.getRGB(j, k));
+						}
+					}
+				}
+				winner.image = img;
+			} else {
+				for (int j = 0; j < width; j++) {
+					for (int k = 0; k < height; k++) {
+
+						// first, pixel is considered to have the noob value
+						int pixelValuesSum = n00bImplementation.getRGB(j, k);
+						int imageCount = 1;
+						for (int i = 0; i < resultImages.size(); i++) {
+							ImageFromBAM current = resultImages.get(i);
+
+							// if the confidence for the pixel is bigger than
+							// MIN_CONFIDENCE, take the value into account
+							if (current.confTIF.getRGB(j, k) > MIN_CONFIDENCE) {
+								pixelValuesSum += current.image.getRGB(j, k);
+								imageCount++;
+							}
+						}
+						// determine the result
+						int result = pixelValuesSum / imageCount;
+						if (result > 128) {
+							result = 0;
+						} else {
+							result = 255;
+						}
+						img.setRGB(j, k, result);
+					}
+				}
+				winner.image = img;
+			}
+		}
 
 		winner.writeImage();
 
-		//		String[] suffixes = ImageIO.getReaderFileSuffixes(); 
-		//		for (int i = 0;i < suffixes.length; i++) { 
-		//			System.out.println(suffixes[i]); 
-		//		}
 	}
 }
